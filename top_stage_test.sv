@@ -49,6 +49,7 @@ module top (
     );
 
     //===============================================================
+    logic main_start, main_ready, main_processing;
     logic main_drawing;
     logic [7:0] main_red, main_blue, main_green;
 
@@ -62,34 +63,80 @@ module top (
         .CORDW      ( 16 ),
         .H_RES      ( 800 ),
         .V_RES      ( 600 )
-        )u_main_game(
+        )main_game(
         .i_clk_pix  ( i_clk_pix  ),
         .i_rst_n    ( i_rst_n    ),
         .i_frame    ( frame    ),
         .i_line     ( line     ),
         .i_sx       ( sx       ),
         .i_sy       ( sy       ),
-        .i_key     (i_key),
-        .i_sw      (i_sw),
+        .i_start (main_start),
+        .i_key      (i_key),
+        .i_sw       (i_sw),
+        .o_ready    (main_ready),
+        .o_processing   (main_processing),
         .o_check_addr (HEX_0),
         .o_drawing  ( main_drawing  ),
         .o_red      (main_red),
         .o_blue     (main_blue),
         .o_green    (main_green)
     );
+    //===============================================================
+    logic menu_processing;
+    logic menu_drawing;
+    logic [7:0] menu_red, menu_blue, menu_green;
+
+    menu #(
+        .SPR_SCALE_X  ( 4 ),
+        .SPR_SCALE_Y  ( 4 ),
+        .SPR_WIDTH    ( 19 ),
+        .SPR_HEIGHT   ( 27 ),
+        .CORDW        ( CORDW ),
+        .H_RES        ( H_RES ),
+        .V_RES        ( V_RES )
+        )menu(
+        .i_clk_pix    ( i_clk_pix    ),
+        .i_rst_n      ( i_rst_n      ),
+        .i_frame      ( frame      ),
+        .i_line       ( line       ),
+        .i_sx         ( sx         ),
+        .i_sy         ( sy         ),
+        .i_key        ( i_key        ),
+        .i_sw         ( i_sw         ),
+        .i_main_ready ( main_ready ),
+        .o_main_start ( main_start ),
+        .o_drawing    ( menu_drawing    ),
+        .o_processing ( menu_processing ),
+        .o_red        ( menu_red        ),
+        .o_blue       ( menu_blue       ),
+        .o_green      ( menu_green      )
+    );
+
 
     // ANCHOR background colour
     logic [23:0] bg_colr;
     assign bg_colr = 24'h6BE9F2;
 
-    // ANCHOR map sprite colour index to palette using CLUT and incorporate background
+    // ANCHOR determine color in different processing stage
     logic [7:0] red_bg,  green_bg,  blue_bg;   // background colour components
     logic [7:0] red, green, blue;              // final colour
     always_comb begin
         {red_bg,  green_bg,  blue_bg}  = bg_colr;
-        red   = (main_drawing ) ? main_red   : red_bg;
-        green = (main_drawing ) ? main_green : green_bg;
-        blue  = (main_drawing ) ? main_blue  : blue_bg;
+        red   = red_bg;
+        green = green_bg;
+        blue  = blue_bg;
+
+        if (menu_processing) begin
+            red   = (menu_drawing ) ? menu_red   : red_bg;
+            green = (menu_drawing ) ? menu_green : green_bg;
+            blue  = (menu_drawing ) ? menu_blue  : blue_bg;
+        end
+        else if (main_processing) begin
+            red   = (main_drawing ) ? main_red   : red_bg;
+            green = (main_drawing ) ? main_green : green_bg;
+            blue  = (main_drawing ) ? main_blue  : blue_bg;
+        end
+        
     end
 
     //===============================================================

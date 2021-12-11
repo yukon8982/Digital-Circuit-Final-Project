@@ -25,10 +25,13 @@ module main_game #(
         input                       i_line,
         input  signed [CORDW-1:0]   i_sx,
         input  signed [CORDW-1:0]   i_sy,
+        input                       i_start,
 
         input  [2:0]                i_key,
         input  [17:0]               i_sw,
         
+        output                      o_ready,
+        output                      o_processing,
         output [4:0]                o_check_addr,
         output                      o_drawing,
         output [7:0]                o_red,
@@ -53,10 +56,9 @@ module main_game #(
     localparam MAP_W  = $clog2(MAP_LENGTH);
     localparam SPR_TRUE_WIDTH = SPR_WIDTH * SPR_SCALE_X;
     localparam SPR_TRUE_HEIGHT = SPR_HEIGHT * SPR_SCALE_Y;
-    logic stg_start, stg_drawing, stg_ready;
-    logic [POS_DIGIT-1:0] stg_floor;
+    logic stg_drawing, stg_ready;
+    logic signed [POS_DIGIT-1:0] stg_floor;
     logic [MAP_W-1:0] map_x;
-    assign stg_start = 1;
     //stage ===================================================================================
     typedef struct packed{
         logic valid;
@@ -65,12 +67,12 @@ module main_game #(
     } block;
 
     enum {
-        IDLE,       
-        LOADING,      
-        PLAY        
-    } state, state_next;
+        IDLE_stage,       
+        LOADING_stage,      
+        PLAY_stage        
+    } state_stage, state_stage_next;
     logic ready;
-    assign ready = (state == PLAY);
+    assign ready = (state_stage == PLAY_stage);
 
     logic load_fin, load_more;
     block buffer [BUFFER_LEN-1:0];
@@ -82,16 +84,17 @@ module main_game #(
     assign stg_color = 24'h505050;
 
     always_ff @(posedge i_clk_pix) begin
-        state <= state_next;
+        state_stage <= state_stage_next;
 
-        case(state)
-            LOADING: begin
+        case(state_stage)
+            LOADING_stage: begin
                 buffer[BUFFER_LEN-1:1] <= buffer[BUFFER_LEN-2:0];
                 buffer[0] <= '{1'b1, stg_rom_data[BLK_BITS-1:BLK_BITS-POS_DIGIT], stg_rom_data[BLK_BITS-1-POS_DIGIT:BLK_BITS-2*POS_DIGIT], stg_rom_data[BLK_BITS-1-2*POS_DIGIT:BLK_BITS-3*POS_DIGIT], stg_rom_data[BLK_BITS-3*POS_DIGIT-1:0]};
                 stg_addr <= (stg_addr == STG_DEPTH-1) ? 0 : stg_addr + 1;
                 blk_now <= blk_now + 1;
             end
-            PLAY: begin
+            PLAY_stage: begin
+                o_ready <= 1;
                 blk_now <=  (buffer[blk_now].right < (char_pos + 5*SPR_SCALE_X + map_x)) ? blk_now - 1 :
                             blk_now;
                 blk_on  <=  (buffer[blk_now].left < (char_pos + 5*SPR_SCALE_X + map_x));
@@ -105,6 +108,8 @@ module main_game #(
         endcase
 
         if (!i_rst_n) begin
+            state_stage <= IDLE_stage;
+            o_ready     <= 0;
             stg_addr    <= 0;
             blk_now     <= 0;
             blk_on      <= 0;
@@ -114,7 +119,7 @@ module main_game #(
 
     logic signed [MAP_W-1:0] pix_x, pix_y;
     always_comb begin      
-        state_next  = IDLE;
+        state_stage_next  = IDLE_stage;
         pix_x       = map_x + i_sx;
         pix_y       = i_sy;
 
@@ -132,14 +137,14 @@ module main_game #(
         stg_drawing = |pix_in_blk;
 
         stg_floor   =   (blk_on) ? buffer[blk_now].height :
-                        0;
+                        -5;
 
-        case (state)
-            IDLE:       state_next = stg_start ? LOADING : IDLE;
-            LOADING: begin
-                state_next = load_fin ? PLAY : LOADING;
+        case (state_stage)
+            IDLE_stage:       state_stage_next = i_start ? LOADING_stage : IDLE_stage;
+            LOADING_stage: begin
+                state_stage_next = load_fin ? PLAY_stage : LOADING_stage;
             end    
-            PLAY:       state_next = PLAY;
+            PLAY_stage:       state_stage_next = PLAY_stage;
         endcase
     end
     //main character sprite=====================================================
@@ -194,6 +199,7 @@ module main_game #(
     end
 
     always_comb begin
+        o_processing = (state_stage == PLAY_stage);
         o_drawing = (   stg_drawing || 
                         (main_chara_drawing && !main_chara_trans)
                     );

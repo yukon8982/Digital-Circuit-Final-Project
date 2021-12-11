@@ -1,4 +1,4 @@
-module moving_sprite #(
+module menu_sprite #(
     parameter SPR_WIDTH    = 19,   // width in pixels
     parameter SPR_HEIGHT   = 27,   // number of lines
     parameter SPR_FRAMES   = 3,    // number of frames in graphic
@@ -27,7 +27,7 @@ module moving_sprite #(
         input  signed [CORDW-1:0] i_sx,
         input  signed [CORDW-1:0] i_sy,
         input  [15:0] i_speed,
-        input  signed [POS_DIGIT-1:0] i_floor,
+        input  [POS_DIGIT-1:0] i_floor,
         input  [POS_DIGIT-1:0] i_char_pos,
 
         output signed [CORDW-1:0] o_spry,
@@ -129,8 +129,6 @@ module moving_sprite #(
                 end
             endcase
         end
-
-        if (i_ctrl[5]) spry     <= -200;
 
         if (!i_rst_n) begin
             cnt_jump            <= 0;
