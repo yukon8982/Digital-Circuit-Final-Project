@@ -70,7 +70,7 @@ module top (
         .i_line     ( line     ),
         .i_sx       ( sx       ),
         .i_sy       ( sy       ),
-        .i_start (main_start),
+        .i_start    (main_start),
         .i_key      (i_key),
         .i_sw       (i_sw),
         .o_ready    (main_ready),
