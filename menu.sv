@@ -31,6 +31,8 @@ module menu #(
     );
     
     localparam POS_DIGIT = 4*4;
+    logic start;
+    assign start = i_key[0];
     //main character sprite=====================================================
     logic [15:0] main_chara_speed;
     logic main_chara_trans, main_chara_drawing, main_jump;
@@ -56,7 +58,7 @@ module menu #(
         ) sprite_main_character(
         .i_clk_pix ( i_clk_pix ),
         .i_rst_n   ( i_rst_n   ),
-        .i_ctrl    ( {1'b0, main_jump, 4'b0010} ), // right walking animation
+        .i_ctrl    ( {1'b0, (main_jump||start), 4'b0010} ), // right walking animation
         .i_frame   ( i_frame   ),
         .i_line    ( i_line    ),
         .i_sx      ( i_sx      ),
@@ -108,7 +110,7 @@ module menu #(
         state_menu_next = IDLE_menu;
 
         case (state_menu)
-            IDLE_menu:       state_menu_next = i_key[0] ? TRANSITION_menu : IDLE_menu;
+            IDLE_menu:       state_menu_next = start ? TRANSITION_menu : IDLE_menu;
             TRANSITION_menu: state_menu_next = i_main_ready ? TRANSITION_END_menu : TRANSITION_menu;
             TRANSITION_END_menu:       state_menu_next = TRANSITION_END_menu;
         endcase

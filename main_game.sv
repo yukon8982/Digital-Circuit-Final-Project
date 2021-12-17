@@ -59,7 +59,7 @@ module main_game #(
     logic stg_drawing, stg_ready;
     logic signed [POS_DIGIT-1:0] stg_floor;
     logic [MAP_W-1:0] map_x;
-    //stage ===================================================================================
+    //main stage ===================================================================================
     typedef struct packed{
         logic valid;
         logic [POS_DIGIT-1:0] left, right, height;
@@ -71,8 +71,9 @@ module main_game #(
         LOADING_stage,      
         PLAY_stage        
     } state_stage, state_stage_next;
-    logic ready;
+    logic ready, ready_rst;
     assign ready = (state_stage == PLAY_stage);
+    assign ready_rst = !ready || i_rst_n;
 
     logic load_fin, load_more;
     block buffer [BUFFER_LEN-1:0];
@@ -151,9 +152,15 @@ module main_game #(
     logic [15:0] main_chara_speed;
     logic main_chara_trans, main_chara_drawing;
     logic [23:0] main_chara_color;
-    logic signed [CORDW-1:0] spry;
+
+    logic signed [CORDW-1:0] main_sprx, main_spry;
+    logci main_face_left, main_walking, main_jumping;
+    logic [POS_DIGIT-1:0] main_jump_height;
+
     assign main_chara_speed = 4;
     assign char_pos = 150;
+    assign main_jump_height = 15;
+
     moving_sprite #(
         .SPR_WIDTH       ( SPR_WIDTH ),
         .SPR_HEIGHT      ( SPR_HEIGHT ),
@@ -170,34 +177,66 @@ module main_game #(
         .V_RES           ( V_RES )
         ) sprite_main_character(
         .i_clk_pix ( i_clk_pix ),
-        .i_rst_n   ( i_rst_n   ),
-        .i_ctrl    ( {i_key[1:0], i_sw[4:1]} ),
+        .i_rst_n   ( ready_rst   ),
         .i_frame   ( i_frame   ),
         .i_line    ( i_line    ),
         .i_sx      ( i_sx      ),
         .i_sy      ( i_sy      ),
-        .i_speed   ( main_chara_speed),
-        .i_floor   ( stg_floor ),
-        .i_char_pos (char_pos),
+        .i_face_left    (main_face_left),
+        .i_walking      (main_walking),
+        .i_jumping      (main_jumping),
+        // .i_speed   ( main_chara_speed),
+        // .i_floor   ( stg_floor ),
+        // .i_char_pos (char_pos),
+        .i_sprx         (main_sprx),
+        .i_spry         (main_spry),
 
-        .o_spry    (spry),
         .o_trans   ( main_chara_trans   ),
         .o_drawing ( main_chara_drawing ),
         .o_color   ( main_chara_color   ),
     );
-    //===================================================================================
+
+    sprite_position#(
+        .SPR_WIDTH     ( SPR_WIDTH ),
+        .SPR_HEIGHT    ( SPR_HEIGHT ),
+        .SPR_SCALE_X   ( SPR_SCALE_X ),
+        .SPR_SCALE_Y   ( SPR_SCALE_Y ),
+        .POS_DIGIT     ( POS_DIGIT ),
+        .CORDW           ( CORDW ),
+        .H_RES           ( H_RES ),
+        .V_RES           ( V_RES )
+    ) sprite_position_main(
+        .i_clk_pix     ( i_clk_pix     ),
+        .i_rst_n       ( ready_rst       ),
+        .i_ctrl        ( {i_key[1:0], i_sw[4:1]} ),
+        .i_frame       ( i_frame       ),
+        .i_line        ( i_line        ),
+
+        .i_speed       ( main_chara_speed       ),
+        .i_floor       ( stg_floor       ),
+        .i_char_pos    ( char_pos    ),
+        .i_jump_height ( main_jump_height ),
+
+        .o_face_left   ( main_face_left   ),
+        .o_walking     ( main_walking     ),
+        .o_jumping     ( main_jumping     ),
+        .o_sprx        ( main_sprx        ),
+        .o_spry        ( main_spry        )
+    );
+
+    //map rolling ===================================================================================
     always_ff @(posedge i_clk_pix) begin
         if (i_frame) begin
-            map_x <=    (i_sw[2]) ? ( ((spry <= V_RES-buffer[blk_now].height-SPR_TRUE_HEIGHT)||(char_pos + SPR_TRUE_WIDTH + map_x <= buffer[blk_now].left)) ? map_x + main_chara_speed :
+            map_x <=    (i_sw[2]) ? ( ((main_spry <= V_RES-buffer[blk_now].height-SPR_TRUE_HEIGHT)||(char_pos + SPR_TRUE_WIDTH + map_x <= buffer[blk_now].left)) ? map_x + main_chara_speed :
                                     map_x):
                         map_x;
         end
 
-        if (!i_rst_n) begin
+        if (!ready_rst) begin
             map_x <= 0;
         end
     end
-
+    //===================================================================================
     always_comb begin
         o_processing = (state_stage == PLAY_stage);
         o_drawing = (   stg_drawing || 
