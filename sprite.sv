@@ -1,8 +1,6 @@
 module sprite #(
     parameter WIDTH=8,         // graphic width in pixels
     parameter HEIGHT=8,        // graphic height in pixels
-    parameter SCALE_X=1,       // sprite width scale-factor
-    parameter SCALE_Y=1,       // sprite height scale-factor
     parameter COLR_BITS=4,     // bits per pixel (2^4=16 colours)
     parameter CORDW=16,        // screen coordinate width in bits
     parameter ADDRW=6          // width of graphic memory address bus
@@ -14,6 +12,8 @@ module sprite #(
     input  signed [CORDW-1:0] i_sprx,  // horizontal sprite position
     input  [COLR_BITS-1:0] i_data_in,  // data from external memory
     input  i_face,                     // facing direction
+    input  [4:0] i_scale_x,       // sprite width scale-factor
+    input  [4:0] i_scale_y,       // sprite height scale-factor
     
     output [ADDRW-1:0] o_pos,          // sprite pixel position
     output [COLR_BITS-1:0] o_pix,      // pixel colour to draw
@@ -26,8 +26,8 @@ module sprite #(
     logic [$clog2(HEIGHT)-1:0] oy; // y position within sprite
 
     // scale counters
-    logic [$clog2(SCALE_X)-1:0] cnt_x; // x scale counters
-    logic [$clog2(SCALE_Y)-1:0] cnt_y; // y scale counters
+    logic [4:0] cnt_x; // x scale counters
+    logic [4:0] cnt_y; // y scale counters
 
     enum {
         IDLE,       // awaiting start signal
@@ -53,7 +53,7 @@ module sprite #(
                 cnt_x <= 0;
             end
             DRAW: begin
-                if (SCALE_X <= 1 || cnt_x == SCALE_X-1) begin
+                if (i_scale_x <= 1 || cnt_x == i_scale_x-1) begin
                     ox <= ox + 1;
                     cnt_x <= 0;
                     o_pos <= (i_face) ? o_pos - 1 : o_pos + 1;
@@ -62,7 +62,7 @@ module sprite #(
                 end
             end
             NEXT_LINE: begin
-                if (SCALE_Y <= 1 || cnt_y == SCALE_Y-1) begin
+                if (i_scale_y <= 1 || cnt_y == i_scale_y-1) begin
                     oy <= oy + 1;
                     cnt_y <= 0;
                     o_pos <= (i_face) ? o_pos + 2*WIDTH : o_pos;
@@ -91,8 +91,8 @@ module sprite #(
     // create status signals
     logic last_pixel, last_line;
     always_comb begin
-        last_pixel = (ox == WIDTH-1  && cnt_x == SCALE_X-1);
-        last_line  = (oy == HEIGHT-1 && cnt_y == SCALE_Y-1);
+        last_pixel = (ox == WIDTH-1  && cnt_x == i_scale_x-1);
+        last_line  = (oy == HEIGHT-1 && cnt_y == i_scale_y-1);
         o_drawing = (state == DRAW);
     end
 

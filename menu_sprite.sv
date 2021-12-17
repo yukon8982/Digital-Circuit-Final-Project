@@ -3,9 +3,6 @@ module menu_sprite #(
     parameter SPR_HEIGHT   = 27,   // number of lines
     parameter SPR_FRAMES   = 3,    // number of frames in graphic
 
-    parameter SPR_SCALE_X  = 2,    // width scale-factor
-    parameter SPR_SCALE_Y  = 2,    // height scale-factor
-
     parameter COLR_BITS    = 8,    // bits per pixel
     parameter SPR_TRANS    = 8'hFF,    // transparent palette entry
     
@@ -26,6 +23,9 @@ module menu_sprite #(
         input  i_line,
         input  signed [CORDW-1:0] i_sx,
         input  signed [CORDW-1:0] i_sy,
+
+        input [4:0] i_scale_x,    // width scale-factor
+        input [4:0] i_scale_y,    // height scale-factor
         input  [15:0] i_speed,
         input  [POS_DIGIT-1:0] i_floor,
         input  [POS_DIGIT-1:0] i_char_pos,
@@ -39,7 +39,8 @@ module menu_sprite #(
     localparam SPR_PIXELS = SPR_WIDTH * SPR_HEIGHT;
     localparam SPR_DEPTH  = SPR_PIXELS * SPR_FRAMES;
     localparam SPR_ADDRW  = $clog2(SPR_DEPTH);
-    localparam SPR_TRUE_HEIGHT = SPR_HEIGHT * SPR_SCALE_Y;
+    logic [CORDW-1:0] SPR_TRUE_HEIGHT;
+    assign SPR_TRUE_HEIGHT = SPR_HEIGHT * i_scale_y;
 
     logic spr_start, spr_drawing;
     logic [COLR_BITS-1:0] spr_pix;
@@ -78,7 +79,7 @@ module menu_sprite #(
                     spr_face <= 1;
                 end
                 RIGHT_movement_x: begin
-                    // sprx <= (sprx < H_RES+150) ? sprx + i_speed : -(SPR_WIDTH*SPR_SCALE_X);
+                    // sprx <= (sprx < H_RES+150) ? sprx + i_speed : -(SPR_WIDTH*i_scale_x);
                     spr_face <= 0;
                 end
             endcase
@@ -108,7 +109,7 @@ module menu_sprite #(
         FALL_movement_y
     } state_movement_y, state_movement_y_next;
 
-    parameter JUMP_HEIGHT = 20; // frame
+    parameter JUMP_HEIGHT = 8; // frame
     logic [15:0] cnt_jump, cnt_fall;
     always_ff @(posedge i_clk_pix) begin
         state_movement_y <= state_movement_y_next;
@@ -189,13 +190,13 @@ module menu_sprite #(
         .WIDTH(SPR_WIDTH),
         .HEIGHT(SPR_HEIGHT),
         .COLR_BITS(COLR_BITS),
-        .SCALE_X(SPR_SCALE_X),
-        .SCALE_Y(SPR_SCALE_Y),
         .ADDRW(SPR_ADDRW)
         ) spr_instance (
         .i_clk(i_clk_pix),
         .i_rst_n(i_rst_n),
         .i_start(spr_start),
+        .i_scale_x(i_scale_x),
+        .i_scale_y(i_scale_y),
         .i_sx(i_sx),
         .i_sprx(sprx),
         .i_data_in(spr_rom_data),

@@ -3,9 +3,6 @@ module moving_sprite #(
     parameter SPR_HEIGHT   = 27,   // number of lines
     parameter SPR_FRAMES   = 3,    // number of frames in graphic
 
-    parameter SPR_SCALE_X  = 2,    // width scale-factor
-    parameter SPR_SCALE_Y  = 2,    // height scale-factor
-
     parameter COLR_BITS    = 8,    // bits per pixel
     parameter SPR_TRANS    = 8'hFF,    // transparent palette entry
     
@@ -26,6 +23,8 @@ module moving_sprite #(
         input  signed [CORDW-1:0] i_sx,
         input  signed [CORDW-1:0] i_sy,
         
+        input [4:0] i_scale_x,    // width scale-factor
+        input [4:0] i_scale_y,    // height scale-factor
         input i_face_left,
         input i_walking,
         input i_jumping,
@@ -41,7 +40,6 @@ module moving_sprite #(
     localparam SPR_PIXELS = SPR_WIDTH * SPR_HEIGHT;
     localparam SPR_DEPTH  = SPR_PIXELS * SPR_FRAMES;
     localparam SPR_ADDRW  = $clog2(SPR_DEPTH);
-    localparam SPR_TRUE_HEIGHT = SPR_HEIGHT * SPR_SCALE_Y;
 
     logic spr_start, spr_drawing;
     logic [COLR_BITS-1:0] spr_pix;
@@ -96,8 +94,6 @@ module moving_sprite #(
         .WIDTH(SPR_WIDTH),
         .HEIGHT(SPR_HEIGHT),
         .COLR_BITS(COLR_BITS),
-        .SCALE_X(SPR_SCALE_X),
-        .SCALE_Y(SPR_SCALE_Y),
         .ADDRW(SPR_ADDRW)
         ) spr_instance (
         .i_clk(i_clk_pix),
@@ -107,6 +103,8 @@ module moving_sprite #(
         .i_sprx(i_sprx),
         .i_data_in(spr_rom_data),
         .i_face(i_face_left),
+        .i_scale_x(i_scale_x),
+        .i_scale_y(i_scale_y),
 
         .o_pos(spr_rom_addr),
         .o_pix(spr_pix),

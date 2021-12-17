@@ -2,10 +2,8 @@ module sprite_position #(
     parameter SPR_WIDTH    = 19,   // width in pixels
     parameter SPR_HEIGHT   = 27,   // number of lines
 
-    parameter SPR_SCALE_X  = 2,    // width scale-factor
-    parameter SPR_SCALE_Y  = 2,    // height scale-factor
-
     parameter POS_DIGIT    = 4 * 4,
+    parameter MAP_W = 20,
 
     parameter CORDW        = 16,
 
@@ -18,23 +16,29 @@ module sprite_position #(
         input  i_frame,
         input  i_line,
 
+        input  [4:0] i_scale_x,
+        input  [4:0] i_scale_y,
         input  [15:0] i_speed,
         input  signed [POS_DIGIT-1:0] i_floor,
+        input  [POS_DIGIT-1:0] i_blk_height,
+        input  [POS_DIGIT-1:0] i_blk_left,
+        input  [POS_DIGIT-1:0] i_blk_right,
+
         input  [POS_DIGIT-1:0] i_char_pos,
-        input  [POS_DIGIT-1:0] i_jump_height, // nominal 15
+        input  [POS_DIGIT-1:0] i_jump_height, // nominal 20
 
         output o_face_left,
         output o_walking,
         output o_jumping,
 
+        output        [MAP_W-1:0] o_map_x,
         output signed [CORDW-1:0] o_sprx,
         output signed [CORDW-1:0] o_spry
     );
     
-    localparam SPR_PIXELS = SPR_WIDTH * SPR_HEIGHT;
-    localparam SPR_DEPTH  = SPR_PIXELS * SPR_FRAMES;
-    localparam SPR_ADDRW  = $clog2(SPR_DEPTH);
-    localparam SPR_TRUE_HEIGHT = SPR_HEIGHT * SPR_SCALE_Y;
+    logic [CORDW-1:0] SPR_TRUE_WIDTH, SPR_TRUE_HEIGHT;
+    assign SPR_TRUE_WIDTH = SPR_WIDTH * i_scale_x;
+    assign SPR_TRUE_HEIGHT = SPR_HEIGHT * i_scale_y;
 
     // ANCHOR draw sprite at position
     logic signed [CORDW-1:0] sprx, spry;
@@ -55,11 +59,9 @@ module sprite_position #(
         if (i_frame) begin
             case (state_movement_x)
                 LEFT_movement_x: begin
-                    // sprx <= (sprx > -150) ? sprx - i_speed : H_RES;
                     spr_face <= 1;
                 end
                 RIGHT_movement_x: begin
-                    // sprx <= (sprx < H_RES+150) ? sprx + i_speed : -(SPR_WIDTH*SPR_SCALE_X);
                     spr_face <= 0;
                 end
             endcase
@@ -72,14 +74,26 @@ module sprite_position #(
         end
     end
 
-    logic [1:0] move_ctrl_x;
-    assign move_ctrl_x = i_ctrl[1:0];
+    logic move_ctrl_x;
+    assign move_ctrl_x = i_ctrl[0];
     always_comb begin
         casez (move_ctrl_x) // up before down, right before left
-            2'b?1: state_movement_x_next = RIGHT_movement_x;
-            // 2'b1?: state_movement_x_next = LEFT_movement_x;
+            1'b1: state_movement_x_next = RIGHT_movement_x;
             default: state_movement_x_next = IDLE_movement_x;
         endcase
+    end
+
+    always_ff @(posedge i_clk_pix) begin
+        if (i_frame) begin
+            o_map_x <=    (move_ctrl_x) ? ( ((spry <= V_RES-i_blk_height-SPR_TRUE_HEIGHT)||
+                                    (i_char_pos + SPR_TRUE_WIDTH + o_map_x + i_speed <= i_blk_left)) ? o_map_x + i_speed :
+                                    i_blk_left - i_char_pos - SPR_TRUE_WIDTH):
+                        o_map_x;
+        end
+
+        if (!i_rst_n) begin
+            o_map_x <= 0;
+        end
     end
 
     // ANCHOR sprite y movement FSM
@@ -132,4 +146,5 @@ module sprite_position #(
 
     assign o_walking = (state_movement_x != IDLE_movement_x);
     assign o_jumping = (state_movement_y != IDLE_movement_y);
+    
 endmodule

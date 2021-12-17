@@ -8,8 +8,6 @@ module main_game #(
 
         parameter MAP_LENGTH   = 10000,
 
-        parameter SPR_SCALE_X  = 4,
-        parameter SPR_SCALE_Y  = 4,
         parameter SPR_WIDTH    = 19,
         parameter SPR_HEIGHT   = 27,
 
@@ -29,6 +27,7 @@ module main_game #(
 
         input  [2:0]                i_key,
         input  [17:0]               i_sw,
+        input                       i_menu_processing,
         
         output                      o_ready,
         output                      o_processing,
@@ -52,10 +51,16 @@ module main_game #(
     );
 
     logic [POS_DIGIT-1:0] char_pos;
+    logic [4:0] SPR_SCALE_X, SPR_SCALE_Y;
+    assign SPR_SCALE_X = 4;
+    assign SPR_SCALE_Y = 4;
 
     localparam MAP_W  = $clog2(MAP_LENGTH);
-    localparam SPR_TRUE_WIDTH = SPR_WIDTH * SPR_SCALE_X;
-    localparam SPR_TRUE_HEIGHT = SPR_HEIGHT * SPR_SCALE_Y;
+    logic [CORDW-1:0] SPR_TRUE_WIDTH, SPR_TRUE_HEIGHT;
+    assign SPR_TRUE_WIDTH = SPR_WIDTH * SPR_SCALE_X;
+    assign SPR_TRUE_HEIGHT = SPR_HEIGHT * SPR_SCALE_Y;
+
+
     logic stg_drawing, stg_ready;
     logic signed [POS_DIGIT-1:0] stg_floor;
     logic [MAP_W-1:0] map_x;
@@ -69,11 +74,11 @@ module main_game #(
     enum {
         IDLE_stage,       
         LOADING_stage,      
-        PLAY_stage        
+        PLAY_stage
     } state_stage, state_stage_next;
     logic ready, ready_rst;
     assign ready = (state_stage == PLAY_stage);
-    assign ready_rst = !ready || i_rst_n;
+    assign ready_rst = ready && i_rst_n && !i_menu_processing;
 
     logic load_fin, load_more;
     block buffer [BUFFER_LEN-1:0];
@@ -96,9 +101,11 @@ module main_game #(
             end
             PLAY_stage: begin
                 o_ready <= 1;
-                blk_now <=  (buffer[blk_now].right < (char_pos + 5*SPR_SCALE_X + map_x)) ? blk_now - 1 :
+                blk_now <=  (buffer[blk_now].right < (char_pos + map_x + 5*SPR_SCALE_X)) ? blk_now - 1 :
                             blk_now;
-                blk_on  <=  (buffer[blk_now].left < (char_pos + 5*SPR_SCALE_X + map_x));
+                            // 5 for feet position from left
+                blk_on  <=  (buffer[blk_now].left < (char_pos + (SPR_WIDTH-3)*SPR_SCALE_X + map_x));
+                            // -3 for feet position from right
                 if (load_more) begin
                     buffer[BUFFER_LEN-1:1] <= buffer[BUFFER_LEN-2:0];
                     buffer[0] <= '{1'b1, stg_rom_data[BLK_BITS-1:BLK_BITS-POS_DIGIT], stg_rom_data[BLK_BITS-1-POS_DIGIT:BLK_BITS-2*POS_DIGIT], stg_rom_data[BLK_BITS-1-2*POS_DIGIT:BLK_BITS-3*POS_DIGIT], stg_rom_data[BLK_BITS-3*POS_DIGIT-1:0]};
@@ -138,7 +145,7 @@ module main_game #(
         stg_drawing = |pix_in_blk;
 
         stg_floor   =   (blk_on) ? buffer[blk_now].height :
-                        -5;
+                        0;
 
         case (state_stage)
             IDLE_stage:       state_stage_next = i_start ? LOADING_stage : IDLE_stage;
@@ -154,19 +161,17 @@ module main_game #(
     logic [23:0] main_chara_color;
 
     logic signed [CORDW-1:0] main_sprx, main_spry;
-    logci main_face_left, main_walking, main_jumping;
+    logic main_face_left, main_walking, main_jumping;
     logic [POS_DIGIT-1:0] main_jump_height;
 
     assign main_chara_speed = 4;
     assign char_pos = 150;
-    assign main_jump_height = 15;
+    assign main_jump_height = 20;
 
     moving_sprite #(
         .SPR_WIDTH       ( SPR_WIDTH ),
         .SPR_HEIGHT      ( SPR_HEIGHT ),
         .SPR_FRAMES      ( 3 ),
-        .SPR_SCALE_X     ( SPR_SCALE_X ),
-        .SPR_SCALE_Y     ( SPR_SCALE_Y ),
         .COLR_BITS       ( 8 ),
         .SPR_TRANS       ( 8'hFF ),
         .SPR_FILE        ( "main_character.mem" ),
@@ -182,6 +187,9 @@ module main_game #(
         .i_line    ( i_line    ),
         .i_sx      ( i_sx      ),
         .i_sy      ( i_sy      ),
+
+        .i_scale_x  (SPR_SCALE_X),
+        .i_scale_y  (SPR_SCALE_Y),
         .i_face_left    (main_face_left),
         .i_walking      (main_walking),
         .i_jumping      (main_jumping),
@@ -199,9 +207,8 @@ module main_game #(
     sprite_position#(
         .SPR_WIDTH     ( SPR_WIDTH ),
         .SPR_HEIGHT    ( SPR_HEIGHT ),
-        .SPR_SCALE_X   ( SPR_SCALE_X ),
-        .SPR_SCALE_Y   ( SPR_SCALE_Y ),
         .POS_DIGIT     ( POS_DIGIT ),
+        .MAP_W         (MAP_W),
         .CORDW           ( CORDW ),
         .H_RES           ( H_RES ),
         .V_RES           ( V_RES )
@@ -212,30 +219,24 @@ module main_game #(
         .i_frame       ( i_frame       ),
         .i_line        ( i_line        ),
 
+        .i_scale_x  (SPR_SCALE_X),
+        .i_scale_y  (SPR_SCALE_Y),
         .i_speed       ( main_chara_speed       ),
         .i_floor       ( stg_floor       ),
+        .i_blk_height  (buffer[blk_now].height),
+        .i_blk_left    (buffer[blk_now].left),
+        .i_blk_right   (buffer[blk_now].right),
         .i_char_pos    ( char_pos    ),
         .i_jump_height ( main_jump_height ),
 
         .o_face_left   ( main_face_left   ),
         .o_walking     ( main_walking     ),
         .o_jumping     ( main_jumping     ),
+        .o_map_x       (map_x),
         .o_sprx        ( main_sprx        ),
         .o_spry        ( main_spry        )
     );
 
-    //map rolling ===================================================================================
-    always_ff @(posedge i_clk_pix) begin
-        if (i_frame) begin
-            map_x <=    (i_sw[2]) ? ( ((main_spry <= V_RES-buffer[blk_now].height-SPR_TRUE_HEIGHT)||(char_pos + SPR_TRUE_WIDTH + map_x <= buffer[blk_now].left)) ? map_x + main_chara_speed :
-                                    map_x):
-                        map_x;
-        end
-
-        if (!ready_rst) begin
-            map_x <= 0;
-        end
-    end
     //===================================================================================
     always_comb begin
         o_processing = (state_stage == PLAY_stage);

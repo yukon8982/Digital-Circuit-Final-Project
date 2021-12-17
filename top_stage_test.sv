@@ -4,7 +4,7 @@ module top (
     input       [2:0] i_key,
     input       [17:0] i_sw,
 
-    output [4:0] HEX_0,
+    output      [4:0] HEX_0,
 
     output      vga_hsync,    // horizontal sync
     output      vga_vsync,    // vertical sync
@@ -73,6 +73,7 @@ module top (
         .i_start    (main_start),
         .i_key      (i_key),
         .i_sw       (i_sw),
+        .i_menu_processing (menu_processing),
         .o_ready    (main_ready),
         .o_processing   (main_processing),
         .o_check_addr (HEX_0),
@@ -87,10 +88,6 @@ module top (
     logic [7:0] menu_red, menu_blue, menu_green;
 
     menu #(
-        .SPR_SCALE_X  ( 4 ),
-        .SPR_SCALE_Y  ( 4 ),
-        .SPR_WIDTH    ( 19 ),
-        .SPR_HEIGHT   ( 27 ),
         .CORDW        ( CORDW ),
         .H_RES        ( H_RES ),
         .V_RES        ( V_RES )

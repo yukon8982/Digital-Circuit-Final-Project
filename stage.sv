@@ -47,7 +47,7 @@ module stage #(
             LOADING: begin
                 buffer[BUFFER_LEN-1:1] <= buffer[BUFFER_LEN-2:0];
                 buffer[0] <= '{1'b1, i_data[BLK_BITS-1:BLK_BITS-POS_DIGIT], i_data[BLK_BITS-1-POS_DIGIT:BLK_BITS-2*POS_DIGIT], i_data[BLK_BITS-1-2*POS_DIGIT:BLK_BITS-3*POS_DIGIT], i_data[BLK_BITS-3*POS_DIGIT-1:0]};
-                o_addr <= (o_addr == STG_DEPTH-1) 0 : o_addr + 1;
+                o_addr <= (o_addr == STG_DEPTH-1) ? 0 : o_addr + 1;
                 
                 load_fin <= (buffer[0].valid && (buffer[0].left > H_RES));
             end
@@ -56,7 +56,7 @@ module stage #(
                 if (load_more) begin
                     buffer[BUFFER_LEN-1:1] <= buffer[BUFFER_LEN-2:0];
                     buffer[0] <= '{1'b1, i_data[BLK_BITS-1:BLK_BITS-POS_DIGIT], i_data[BLK_BITS-1-POS_DIGIT:BLK_BITS-2*POS_DIGIT], i_data[BLK_BITS-1-2*POS_DIGIT:BLK_BITS-3*POS_DIGIT], i_data[BLK_BITS-3*POS_DIGIT-1:0]};
-                    o_addr <= (o_addr == STG_DEPTH-1) 0 : o_addr + 1;
+                    o_addr <= (o_addr == STG_DEPTH-1) ? 0 : o_addr + 1;
                 end
             end
         endcase

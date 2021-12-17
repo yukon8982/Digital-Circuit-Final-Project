@@ -1,8 +1,6 @@
 module menu #(
-        parameter SPR_SCALE_X  = 4,
-        parameter SPR_SCALE_Y  = 4,
-        parameter SPR_WIDTH    = 19,
-        parameter SPR_HEIGHT   = 27,
+        parameter MAIN_SPR_WIDTH    = 19,
+        parameter MAIN_SPR_HEIGHT   = 27,
 
         parameter CORDW        = 16,
 
@@ -34,19 +32,20 @@ module menu #(
     logic start;
     assign start = i_key[0];
     //main character sprite=====================================================
+    logic [4:0] MAIN_SPR_SCALE_X, MAIN_SPR_SCALE_Y;
+
     logic [15:0] main_chara_speed;
     logic main_chara_trans, main_chara_drawing, main_jump;
     logic [23:0] main_chara_color;
     logic signed [POS_DIGIT-1:0] menu_floor;
-    assign menu_floor = 400;
+    logic [POS_DIGIT-1:0] char_pos;
+    assign menu_floor = 300;
     assign main_chara_speed = 4;
-    assign char_pos = 400;
+    assign char_pos = 400 - MAIN_SPR_WIDTH*MAIN_SPR_SCALE_X/2;
     menu_sprite #(
-        .SPR_WIDTH       ( SPR_WIDTH ),
-        .SPR_HEIGHT      ( SPR_HEIGHT ),
+        .SPR_WIDTH       ( MAIN_SPR_WIDTH ),
+        .SPR_HEIGHT      ( MAIN_SPR_HEIGHT ),
         .SPR_FRAMES      ( 3 ),
-        .SPR_SCALE_X     ( SPR_SCALE_X ),
-        .SPR_SCALE_Y     ( SPR_SCALE_Y ),
         .COLR_BITS       ( 8 ),
         .SPR_TRANS       ( 8'hFF ),
         .SPR_FILE        ( "main_character.mem" ),
@@ -63,6 +62,8 @@ module menu #(
         .i_line    ( i_line    ),
         .i_sx      ( i_sx      ),
         .i_sy      ( i_sy      ),
+        .i_scale_x  (MAIN_SPR_SCALE_X),
+        .i_scale_y  (MAIN_SPR_SCALE_Y),
         .i_speed   ( main_chara_speed),
         .i_floor   ( menu_floor ),
         .i_char_pos (char_pos),
@@ -79,16 +80,34 @@ module menu #(
         TRANSITION_END_menu
     } state_menu, state_menu_next;
 
-    logic [15:0] cnt_trans;
+    logic [31:0] cnt_trans;
+    logic [6:0]  cnt_scale;
+    logic [4:0]  spr_scale;
      always_ff @(posedge i_clk_pix) begin
-        state_stage <= state_stage_next;
-        case(state_stage)
+        state_menu <= state_menu_next;
+        case(state_menu)
             IDLE_menu: begin
                 cnt_trans <= 0;
                 main_jump <= 0;
+                if (i_frame) begin
+                    cnt_scale <= (cnt_scale[6:2] == 31) ? 0 : cnt_scale + 1;
+                    spr_scale <= 6;
+                    // case(cnt_scale[6:2])
+                    //     0:  spr_scale <= 6;
+                    //     6:  spr_scale <= 5;
+                    //     8:  spr_scale <= 4;
+                    //     10:  spr_scale <= 3;
+                    //     16:  spr_scale <= 2;
+                    //     22:  spr_scale <= 3;
+                    //     24:  spr_scale <= 4;
+                    //     26:  spr_scale <= 5;
+                    //     default: spr_scale <= 6;
+                    // endcase
+                end
             end
             TRANSITION_menu: begin
                 o_main_start <= 1;
+                cnt_scale <= 0;
                 cnt_trans <= cnt_trans + 1; // for fadeout or animation or what
 
             end
@@ -98,20 +117,24 @@ module menu #(
         endcase
 
         if (!i_rst_n) begin
-            state_stage <= IDLE_menu;
+            state_menu <= IDLE_menu;
             main_jump <= 0;
             o_main_start <= 0;
             cnt_trans <= 0;
+            cnt_scale <= 0;
+            spr_scale <= 6;
         end
      end
 
 
     always_comb begin
         state_menu_next = IDLE_menu;
+        MAIN_SPR_SCALE_X = spr_scale;
+        MAIN_SPR_SCALE_Y = spr_scale;
 
         case (state_menu)
             IDLE_menu:       state_menu_next = start ? TRANSITION_menu : IDLE_menu;
-            TRANSITION_menu: state_menu_next = i_main_ready ? TRANSITION_END_menu : TRANSITION_menu;
+            TRANSITION_menu: state_menu_next = (i_main_ready && (cnt_trans >= 32'd60000000)) ? TRANSITION_END_menu : TRANSITION_menu;
             TRANSITION_END_menu:       state_menu_next = TRANSITION_END_menu;
         endcase
     end
