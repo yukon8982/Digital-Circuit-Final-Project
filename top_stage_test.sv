@@ -4,6 +4,11 @@ module top (
     input       [2:0] i_key,
     input       [17:0] i_sw,
 
+    input       i_jump,
+    input       [15:0] i_jump_height, // sync wuth jump
+    input       i_run,
+    input       [15:0] i_run_speed,
+
     output      [4:0] HEX_0,
 
     output      vga_hsync,    // horizontal sync
@@ -56,7 +61,7 @@ module top (
     main_game #(
         .STG_FILE   ( "stg.mem" ),
         .BLK_BITS   ( 4 * 13 ),
-        .STG_DEPTH  ( 8 ),
+        .STG_DEPTH  ( 21 ),
         .POS_DIGIT  ( 4 * 4 ),
         .BUFFER_LEN ( 10 ),
         .MAP_LENGTH ( 10000 ),
@@ -73,6 +78,10 @@ module top (
         .i_start    (main_start),
         .i_key      (i_key),
         .i_sw       (i_sw),
+        .i_jump         (i_jump),
+        .i_jump_height  (i_jump_height), // sync wuth jump
+        .i_run          (i_run),
+        .i_run_speed    (i_run_speed),
         .i_menu_processing (menu_processing),
         .o_ready    (main_ready),
         .o_processing   (main_processing),

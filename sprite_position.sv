@@ -18,14 +18,16 @@ module sprite_position #(
 
         input  [4:0] i_scale_x,
         input  [4:0] i_scale_y,
-        input  [15:0] i_speed,
         input  signed [POS_DIGIT-1:0] i_floor,
         input  [POS_DIGIT-1:0] i_blk_height,
         input  [POS_DIGIT-1:0] i_blk_left,
         input  [POS_DIGIT-1:0] i_blk_right,
 
         input  [POS_DIGIT-1:0] i_char_pos,
-        input  [POS_DIGIT-1:0] i_jump_height, // nominal 20
+        input                       i_jump,
+        input  [15:0]               i_jump_height, // sync wuth jump
+        input                       i_run,
+        input  [15:0]               i_run_speed,
 
         output o_face_left,
         output o_walking,
@@ -39,6 +41,19 @@ module sprite_position #(
     logic [CORDW-1:0] SPR_TRUE_WIDTH, SPR_TRUE_HEIGHT;
     assign SPR_TRUE_WIDTH = SPR_WIDTH * i_scale_x;
     assign SPR_TRUE_HEIGHT = SPR_HEIGHT * i_scale_y;
+
+    // ANCHOR divide frame rate
+    logic cnt_frame;
+    always_ff @(posedge i_clk_pix) begin
+        if (i_frame) begin
+            cnt_frame = cnt_frame + 1;
+        end
+
+        if (!i_rst_n) begin
+            cnt_frame <= 0;
+        end
+    end
+
 
     // ANCHOR draw sprite at position
     logic signed [CORDW-1:0] sprx, spry;
@@ -75,7 +90,7 @@ module sprite_position #(
     end
 
     logic move_ctrl_x;
-    assign move_ctrl_x = i_ctrl[0];
+    assign move_ctrl_x = i_run;
     always_comb begin
         casez (move_ctrl_x) // up before down, right before left
             1'b1: state_movement_x_next = RIGHT_movement_x;
@@ -86,7 +101,7 @@ module sprite_position #(
     always_ff @(posedge i_clk_pix) begin
         if (i_frame) begin
             o_map_x <=    (move_ctrl_x) ? ( ((spry <= V_RES-i_blk_height-SPR_TRUE_HEIGHT)||
-                                    (i_char_pos + SPR_TRUE_WIDTH + o_map_x + i_speed <= i_blk_left)) ? o_map_x + i_speed :
+                                    (i_char_pos + SPR_TRUE_WIDTH + o_map_x + i_run_speed <= i_blk_left)) ? o_map_x + i_run_speed :
                                     i_blk_left - i_char_pos - SPR_TRUE_WIDTH):
                         o_map_x;
         end
@@ -106,7 +121,7 @@ module sprite_position #(
     logic [15:0] cnt_jump, cnt_fall;
     always_ff @(posedge i_clk_pix) begin
         state_movement_y <= state_movement_y_next;
-        if (i_frame) begin
+        if (i_frame && cnt_frame) begin
             case (state_movement_y)
                 IDLE_movement_y: begin
                     cnt_jump <= 1;
@@ -133,7 +148,7 @@ module sprite_position #(
     end
 
     logic move_ctrl_jump_y;
-    assign move_ctrl_jump_y = i_ctrl[4];
+    assign move_ctrl_jump_y = i_jump;
     always_comb begin
         case(state_movement_y)
             IDLE_movement_y: state_movement_y_next = (move_ctrl_jump_y) ? JUMP_movement_y :

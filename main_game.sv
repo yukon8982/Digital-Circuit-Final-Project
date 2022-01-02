@@ -27,6 +27,10 @@ module main_game #(
 
         input  [2:0]                i_key,
         input  [17:0]               i_sw,
+        input                       i_jump,
+        input  [15:0]               i_jump_height, // sync wuth jump
+        input                       i_run,
+        input  [15:0]               i_run_speed,
         input                       i_menu_processing,
         
         output                      o_ready,
@@ -162,11 +166,11 @@ module main_game #(
 
     logic signed [CORDW-1:0] main_sprx, main_spry;
     logic main_face_left, main_walking, main_jumping;
-    logic [POS_DIGIT-1:0] main_jump_height;
+    logic [15:0] main_jump_height;
 
-    assign main_chara_speed = 4;
+    assign main_chara_speed = (i_sw[3]) ? 4 : 2;
     assign char_pos = 150;
-    assign main_jump_height = 20;
+    assign main_jump_height = (i_sw[2]) ? 30 : 20;
 
     moving_sprite #(
         .SPR_WIDTH       ( SPR_WIDTH ),
@@ -221,13 +225,16 @@ module main_game #(
 
         .i_scale_x  (SPR_SCALE_X),
         .i_scale_y  (SPR_SCALE_Y),
-        .i_speed       ( main_chara_speed       ),
         .i_floor       ( stg_floor       ),
         .i_blk_height  (buffer[blk_now].height),
         .i_blk_left    (buffer[blk_now].left),
         .i_blk_right   (buffer[blk_now].right),
         .i_char_pos    ( char_pos    ),
-        .i_jump_height ( main_jump_height ),
+        
+        .i_jump         (i_key[0]),
+        .i_jump_height  (main_jump_height), // sync wuth jump
+        .i_run          (i_sw[1]),
+        .i_run_speed    (main_chara_speed),
 
         .o_face_left   ( main_face_left   ),
         .o_walking     ( main_walking     ),
